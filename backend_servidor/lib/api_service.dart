@@ -85,6 +85,18 @@ class ApiService {
       return Response.ok("Produto removido");
     });
 
+// ====================== ROTAS DE VENDAS =========================
+
+// POST venda
+    router.post('/sales', (Request req) async {
+      final body = jsonDecode(await req.readAsString());
+
+      // TODO: Futuro -> salvar no banco
+      // por enquanto apenas aceita o POST
+
+      return Response(201, body: "Venda registrada");
+    });
+
     return router;
   }
 }

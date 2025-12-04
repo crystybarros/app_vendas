@@ -32,9 +32,13 @@ class _SalePageState extends State<SalePage> {
   Future saveSale() async {
     if (selectedClient == null || selectedProduct == null) return;
 
+    // pega os registros pelo índice
+    final client = HiveClientDB.getAll()[selectedClient!];
+    final product = HiveProductDB.getAll()[selectedProduct!];
+
     await HiveSaleDB.add(Sale(
-      clientId: selectedClient!,
-      productId: selectedProduct!,
+      clientId: client.id ?? 0, // se offline, 0
+      productId: product.id ?? 0, // se offline, 0
       quantity: quantity,
       total: total,
       synced: false,
@@ -73,9 +77,11 @@ class _SalePageState extends State<SalePage> {
               value: selectedClient,
               hint: const Text("Selecione"),
               isExpanded: true,
-              items: clients.map((c) {
+              items: clients.asMap().entries.map((entry) {
+                final index = entry.key;
+                final c = entry.value;
                 return DropdownMenuItem(
-                  value: c.id,
+                  value: index,
                   child: Text(c.name),
                 );
               }).toList(),
@@ -92,16 +98,18 @@ class _SalePageState extends State<SalePage> {
               value: selectedProduct,
               hint: const Text("Selecione"),
               isExpanded: true,
-              items: products.map((p) {
+              items: products.asMap().entries.map((entry) {
+                final index = entry.key;
+                final p = entry.value;
                 return DropdownMenuItem(
-                  value: p.id,
+                  value: index,
                   child: Text("${p.name} (R\$ ${p.price})"),
                 );
               }).toList(),
               onChanged: (value) {
                 setState(() {
                   selectedProduct = value;
-                  price = products.firstWhere((p) => p.id == value).price;
+                  price = products[value!].price; // preço corrige
                   calculateTotal();
                 });
               },
@@ -117,8 +125,10 @@ class _SalePageState extends State<SalePage> {
                   icon: const Icon(Icons.remove),
                   onPressed: () {
                     if (quantity > 1) {
-                      quantity--;
-                      calculateTotal();
+                      setState(() {
+                        quantity--;
+                        calculateTotal();
+                      });
                     }
                   },
                 ),
@@ -126,8 +136,10 @@ class _SalePageState extends State<SalePage> {
                 IconButton(
                   icon: const Icon(Icons.add),
                   onPressed: () {
-                    quantity++;
-                    calculateTotal();
+                    setState(() {
+                      quantity++;
+                      calculateTotal();
+                    });
                   },
                 ),
               ],
