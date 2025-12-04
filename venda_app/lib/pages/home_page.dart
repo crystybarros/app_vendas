@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'client_page.dart';
 import 'products_page.dart';
+import 'sale_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -33,6 +34,15 @@ class HomePage extends StatelessWidget {
                   );
                 },
                 child: const Text("Cadastro de Produtos"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SalePage()),
+                  );
+                },
+                child: const Text("Registrar Venda"),
               ),
             ],
           ),

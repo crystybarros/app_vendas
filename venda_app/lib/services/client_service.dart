@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/client.dart';
+import '../models/sale.dart';
 
 class ClientService {
   // Emulador Android usa 10.0.2.2
@@ -41,6 +42,19 @@ class ClientService {
   Future<bool> deleteProduct(int id) async {
     try {
       await http.delete(Uri.parse("http://10.0.2.2:8080/products/$id"));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> sendSale(Sale s) async {
+    try {
+      await http.post(
+        Uri.parse("http://10.0.2.2:8080/sales"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(s.toJson()),
+      );
       return true;
     } catch (_) {
       return false;

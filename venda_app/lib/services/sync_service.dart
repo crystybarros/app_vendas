@@ -4,6 +4,8 @@ import '../storage/hive_client.dart';
 import 'client_service.dart';
 import '../storage/hive_product.dart';
 import '../models/product.dart';
+import '../storage/hive_sale.dart';
+import '../models/sale.dart';
 
 class SyncService {
   final ClientService clientApi = ClientService();
@@ -27,7 +29,8 @@ class SyncService {
   void startAutoSync() {
     Connectivity().onConnectivityChanged.listen((status) {
       if (status != ConnectivityResult.none) {
-        syncPending();
+        syncPending(); // clientes e produtos
+        syncSales(); // vendas
       }
     });
   }
@@ -60,6 +63,21 @@ class SyncService {
       if (ok) p.delete();
     } else {
       p.delete();
+    }
+  }
+
+  Future syncSales() async {
+    final all = HiveSaleDB.getAll();
+
+    for (final s in all) {
+      if (!s.synced) {
+        final ok = await clientApi.sendSale(s);
+        if (ok) {
+          final index = all.indexOf(s);
+          s.synced = true;
+          s.save();
+        }
+      }
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'storage/hive_client.dart';
 import 'storage/hive_product.dart';
 import 'pages/home_page.dart'; // import da tela inicial
+import 'storage/hive_sale.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -9,6 +10,7 @@ void main() async {
   // Inicializa Hive
   await HiveClientDB.init();
   await HiveProductDB.init();
+  await HiveSaleDB.init();
 
   runApp(const MyApp());
 }
