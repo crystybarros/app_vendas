@@ -23,48 +23,88 @@ class _SaleListPageState extends State<SaleListPage> {
     final clients = HiveClientDB.getAll();
     final products = HiveProductDB.getAll();
 
+    // CALCULA TOTAL GERAL
+    double totalGeral = 0;
+    for (var s in sales) {
+      totalGeral += s.total;
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text("Vendas Registradas")),
-      body: ListView.builder(
-        itemCount: sales.length,
-        itemBuilder: (_, i) {
-          final s = sales[i];
+      body: Column(
+        children: [
+          // LISTA DE VENDAS
+          Expanded(
+            child: ListView.builder(
+              itemCount: sales.length,
+              itemBuilder: (_, i) {
+                final s = sales[i];
 
-          final client = clients.firstWhere(
-            (c) => c.id == s.clientId,
-            orElse: () => Client(id: 0, name: "Cliente ?", companyName: ""),
-          );
+                final client = clients.firstWhere(
+                  (c) => c.id == s.clientId,
+                  orElse: () =>
+                      Client(id: 0, name: "Cliente ?", companyName: ""),
+                );
 
-          final product = products.firstWhere(
-            (p) => p.id == s.productId,
-            orElse: () => Product(id: 0, name: "Produto ?", price: 0),
-          );
+                final product = products.firstWhere(
+                  (p) => p.id == s.productId,
+                  orElse: () => Product(id: 0, name: "Produto ?", price: 0),
+                );
 
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: ListTile(
-              title: Text("${client.name} - ${product.name}"),
-              subtitle: Text(
-                "Qtd: ${s.quantity}   Total: R\$ ${s.total.toStringAsFixed(2)}",
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // EDITAR
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
-                    onPressed: () => _editSale(s, i),
+                return Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: ListTile(
+                    title: Text("${client.name} - ${product.name}"),
+                    subtitle: Text(
+                      "Qtd: ${s.quantity}   Total: R\$ ${s.total.toStringAsFixed(2)}",
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _editSale(s, i),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteSale(i),
+                        ),
+                      ],
+                    ),
                   ),
-                  // EXCLUIR
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteSale(i),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+
+          const Divider(),
+
+          // TOTAL GERAL NO FINAL
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Total Geral:",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "R\$ ${totalGeral.toStringAsFixed(2)}",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -86,10 +126,16 @@ class _SaleListPageState extends State<SaleListPage> {
     final clients = HiveClientDB.getAll();
     final products = HiveProductDB.getAll();
 
-    int? selectedClient = sale.clientId;
-    int? selectedProduct = sale.productId;
+    // Encontrar índices atuais baseado no id
+    int selectedClient = clients.indexWhere((c) => c.id == sale.clientId);
+    int selectedProduct = products.indexWhere((p) => p.id == sale.productId);
+
+    // fallback se não encontrar
+    if (selectedClient < 0) selectedClient = 0;
+    if (selectedProduct < 0) selectedProduct = 0;
+
     int quantity = sale.quantity;
-    double price = sale.total / sale.quantity;
+    double price = products[selectedProduct].price;
     double total = sale.total;
 
     void calculateTotal() {
@@ -110,15 +156,18 @@ class _SaleListPageState extends State<SaleListPage> {
                   DropdownButton<int>(
                     value: selectedClient,
                     isExpanded: true,
-                    items: clients.map((c) {
+                    items: clients.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final c = entry.value;
+
                       return DropdownMenuItem(
-                        value: c.id,
+                        value: i,
                         child: Text(c.name),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setDialogState(() {
-                        selectedClient = value;
+                        selectedClient = value!;
                       });
                     },
                   ),
@@ -129,16 +178,19 @@ class _SaleListPageState extends State<SaleListPage> {
                   DropdownButton<int>(
                     value: selectedProduct,
                     isExpanded: true,
-                    items: products.map((p) {
+                    items: products.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final p = entry.value;
+
                       return DropdownMenuItem(
-                        value: p.id,
+                        value: i,
                         child: Text("${p.name} (R\$ ${p.price})"),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setDialogState(() {
-                        selectedProduct = value;
-                        price = products.firstWhere((p) => p.id == value).price;
+                        selectedProduct = value!;
+                        price = products[value].price;
                         calculateTotal();
                       });
                     },
@@ -161,8 +213,10 @@ class _SaleListPageState extends State<SaleListPage> {
                           }
                         },
                       ),
-                      Text(quantity.toString(),
-                          style: const TextStyle(fontSize: 18)),
+                      Text(
+                        quantity.toString(),
+                        style: const TextStyle(fontSize: 18),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.add),
                         onPressed: () {
@@ -194,16 +248,18 @@ class _SaleListPageState extends State<SaleListPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (selectedClient == null || selectedProduct == null) return;
+                final client = clients[selectedClient];
+                final product = products[selectedProduct];
 
-                sale.clientId = selectedClient!;
-                sale.productId = selectedProduct!;
+                sale.clientId = client.id ?? 0;
+                sale.productId = product.id ?? 0;
                 sale.quantity = quantity;
                 sale.total = total;
                 sale.synced = false;
-                sale.save();
+                await sale.save();
 
                 sync.syncSales();
+
                 Navigator.pop(context);
                 setState(() {});
               },
