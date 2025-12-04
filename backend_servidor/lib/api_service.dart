@@ -57,6 +57,34 @@ class ApiService {
       return Response.ok("Cliente removido");
     });
 
+    // ====================== ROTAS PRODUTOS =========================
+
+// GET produtos
+    router.get('/products', (Request req) {
+      return Response.ok(jsonEncode(db.getProducts()),
+          headers: {'Content-Type': 'application/json'});
+    });
+
+// POST adicionar produto
+    router.post('/products', (Request req) async {
+      final body = jsonDecode(await req.readAsString());
+      db.insertProduct(body['name'], body['price'].toDouble());
+      return Response(201, body: "Produto cadastrado");
+    });
+
+// PUT atualizar produto
+    router.put('/products/<id|[0-9]+>', (Request req, String id) async {
+      final body = jsonDecode(await req.readAsString());
+      db.updateProduct(int.parse(id), body['name'], body['price'].toDouble());
+      return Response.ok("Produto atualizado");
+    });
+
+// DELETE remover produto
+    router.delete('/products/<id|[0-9]+>', (Request req, String id) {
+      db.deleteProduct(int.parse(id));
+      return Response.ok("Produto removido");
+    });
+
     return router;
   }
 }

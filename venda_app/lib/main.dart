@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'storage/hive_client.dart';
-import 'pages/client_page.dart';
+import 'storage/hive_product.dart';
+import 'pages/home_page.dart'; // import da tela inicial
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializa Hive
   await HiveClientDB.init();
+  await HiveProductDB.init();
 
   runApp(const MyApp());
 }
@@ -15,13 +19,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Clientes Offline',
+      title: 'Sistema de Vendas',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.blue,
       ),
-      debugShowCheckedModeBanner: false,
-      home: const ClientPage(),
+      home: const HomePage(),
     );
   }
 }

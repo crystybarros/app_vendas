@@ -37,4 +37,13 @@ class ClientService {
       return false;
     }
   }
+
+  Future<bool> deleteProduct(int id) async {
+    try {
+      await http.delete(Uri.parse("http://10.0.2.2:8080/products/$id"));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 }

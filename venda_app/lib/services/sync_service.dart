@@ -2,6 +2,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/client.dart';
 import '../storage/hive_client.dart';
 import 'client_service.dart';
+import '../storage/hive_product.dart';
+import '../models/product.dart';
 
 class SyncService {
   final ClientService clientApi = ClientService();
@@ -46,6 +48,18 @@ class SyncService {
     } else {
       // Só local
       await client.delete();
+    }
+  }
+
+  Future deleteProductWithSync(int index) async {
+    final list = HiveProductDB.getAll();
+    final p = list[index];
+
+    if (p.id != null) {
+      final ok = await clientApi.deleteProduct(p.id!);
+      if (ok) p.delete();
+    } else {
+      p.delete();
     }
   }
 }
