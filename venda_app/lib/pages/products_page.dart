@@ -18,7 +18,7 @@ class _ProductsPageState extends State<ProductsPage> {
   Future addProduct() async {
     await HiveProductDB.add(Product(
       name: nameCtrl.text,
-      price: double.parse(priceCtrl.text),
+      price: double.tryParse(priceCtrl.text.replaceAll(",", ".")) ?? 0.0,
       synced: false,
     ));
 
