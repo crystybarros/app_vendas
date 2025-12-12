@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'storage/hive_client.dart';
 import 'storage/hive_product.dart';
-import 'pages/home_page.dart'; // import da tela inicial
 import 'storage/hive_sale.dart';
+import 'pages/welcome_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inicializa Hive
   await HiveClientDB.init();
   await HiveProductDB.init();
   await HiveSaleDB.init();
@@ -27,7 +26,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.blue,
       ),
-      home: const HomePage(),
+      home: const WelcomePage(),
     );
   }
 }
