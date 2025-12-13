@@ -54,7 +54,11 @@ class _ProductsPageState extends State<ProductsPage> {
           ElevatedButton(
             onPressed: () {
               p.name = nameCtrl.text;
-              p.price = double.parse(priceCtrl.text);
+              p.price = double.tryParse(
+                    priceCtrl.text.replaceAll(",", "."),
+                  ) ??
+                  0.0;
+
               p.synced = false;
               p.save();
               setState(() {});

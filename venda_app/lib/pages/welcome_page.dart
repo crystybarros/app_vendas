@@ -36,7 +36,7 @@ class WelcomePage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              "Sistema de Vendas Offline-First",
+              "Sistema de Vendas",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,

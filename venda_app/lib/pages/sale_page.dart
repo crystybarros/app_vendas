@@ -15,8 +15,8 @@ class SalePage extends StatefulWidget {
 }
 
 class _SalePageState extends State<SalePage> {
-  int? selectedClient;
-  int? selectedProduct;
+  dynamic selectedClientKey;
+  dynamic selectedProductKey;
   int quantity = 1;
   double price = 0.0;
   double total = 0.0;
@@ -30,30 +30,31 @@ class _SalePageState extends State<SalePage> {
   }
 
   Future saveSale() async {
-    if (selectedClient == null || selectedProduct == null) return;
+    if (selectedClientKey == null || selectedProductKey == null) return;
 
-    // pega os registros pelo índice
-    final client = HiveClientDB.getAll()[selectedClient!];
-    final product = HiveProductDB.getAll()[selectedProduct!];
+    final productBox = HiveProductDB.box();
+    final product = productBox.get(selectedProductKey)!;
 
     await HiveSaleDB.add(Sale(
-      clientId: client.id ?? 0, // se offline, 0
-      productId: product.id ?? 0, // se offline, 0
+      clientId: selectedClientKey, // chave real do Hive
+      productId: selectedProductKey, // chave real do Hive
       quantity: quantity,
       total: total,
       synced: false,
     ));
 
-    sync.syncSales();
+    await sync.syncSales();
 
+    // Resetar campos
     setState(() {
-      selectedClient = null;
-      selectedProduct = null;
+      selectedClientKey = null;
+      selectedProductKey = null;
       quantity = 1;
       price = 0;
       total = 0;
     });
 
+    // Mostrar mensagem
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Venda salva!")),
     );
@@ -61,8 +62,8 @@ class _SalePageState extends State<SalePage> {
 
   @override
   Widget build(BuildContext context) {
-    final clients = HiveClientDB.getAll();
-    final products = HiveProductDB.getAll();
+    final clientBox = HiveClientDB.box();
+    final productBox = HiveProductDB.box();
 
     return Scaffold(
       appBar: AppBar(title: const Text("Registrar Venda")),
@@ -73,20 +74,19 @@ class _SalePageState extends State<SalePage> {
           children: [
             // CLIENTE
             const Text("Cliente"),
-            DropdownButton<int>(
-              value: selectedClient,
+            DropdownButton<dynamic>(
+              value: selectedClientKey,
               hint: const Text("Selecione"),
               isExpanded: true,
-              items: clients.asMap().entries.map((entry) {
-                final index = entry.key;
-                final c = entry.value;
+              items: clientBox.keys.map((key) {
+                final c = clientBox.get(key)!;
                 return DropdownMenuItem(
-                  value: index,
+                  value: key,
                   child: Text(c.name),
                 );
               }).toList(),
               onChanged: (value) {
-                setState(() => selectedClient = value);
+                setState(() => selectedClientKey = value);
               },
             ),
 
@@ -94,22 +94,21 @@ class _SalePageState extends State<SalePage> {
 
             // PRODUTO
             const Text("Produto"),
-            DropdownButton<int>(
-              value: selectedProduct,
+            DropdownButton<dynamic>(
+              value: selectedProductKey,
               hint: const Text("Selecione"),
               isExpanded: true,
-              items: products.asMap().entries.map((entry) {
-                final index = entry.key;
-                final p = entry.value;
+              items: productBox.keys.map((key) {
+                final p = productBox.get(key)!;
                 return DropdownMenuItem(
-                  value: index,
+                  value: key,
                   child: Text("${p.name} (R\$ ${p.price})"),
                 );
               }).toList(),
               onChanged: (value) {
                 setState(() {
-                  selectedProduct = value;
-                  price = products[value!].price; // preço corrige
+                  selectedProductKey = value;
+                  price = productBox.get(value)!.price;
                   calculateTotal();
                 });
               },

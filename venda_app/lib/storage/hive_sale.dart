@@ -4,16 +4,28 @@ import '../models/sale.dart';
 class HiveSaleDB {
   static const boxName = "sales";
 
-  static Future init() async {
-    Hive.registerAdapter(SaleAdapter());
-    await Hive.openBox<Sale>(boxName);
+  /// Inicializa o Hive e abre a box de vendas
+  static Future<void> init() async {
+    if (!Hive.isAdapterRegistered(SaleAdapter().typeId)) {
+      Hive.registerAdapter(SaleAdapter());
+    }
+    if (!Hive.isBoxOpen(boxName)) {
+      await Hive.openBox<Sale>(boxName);
+    }
   }
 
+  /// Retorna a box de vendas
   static Box<Sale> box() => Hive.box<Sale>(boxName);
 
+  /// Retorna todas as vendas
   static List<Sale> getAll() => box().values.toList();
 
-  static Future add(Sale s) => box().add(s);
+  /// Adiciona venda e retorna a chave gerada automaticamente
+  static Future<int> add(Sale s) async {
+    final key = await box().add(s); // chave auto-incremental do Hive
+    return key;
+  }
 
-  static Future delete(int index) => box().deleteAt(index);
+  /// Deleta pelo ID real (key do Hive)
+  static Future<void> delete(dynamic key) => box().delete(key);
 }

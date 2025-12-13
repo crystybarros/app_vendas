@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
 import '../models/sale.dart';
 import '../models/client.dart';
 import '../models/product.dart';
+
 import '../storage/hive_client.dart';
 import '../storage/hive_product.dart';
 import '../storage/hive_sale.dart';
+
 import '../services/sync_service.dart';
 
 class SaleListPage extends StatefulWidget {
@@ -15,93 +19,138 @@ class SaleListPage extends StatefulWidget {
 }
 
 class _SaleListPageState extends State<SaleListPage> {
-  final sync = SyncService();
+  final SyncService sync = SyncService();
 
   @override
   Widget build(BuildContext context) {
-    final sales = HiveSaleDB.getAll();
-    final clients = HiveClientDB.getAll();
-    final products = HiveProductDB.getAll();
-
-    // CALCULA TOTAL GERAL
-    double totalGeral = 0;
-    for (var s in sales) {
-      totalGeral += s.total;
-    }
+    final saleBox = HiveSaleDB.box();
+    final clientBox = HiveClientDB.box();
+    final productBox = HiveProductDB.box();
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Vendas Registradas")),
+      appBar: AppBar(
+        title: const Text("Vendas Registradas"),
+        centerTitle: true,
+      ),
       body: Column(
         children: [
-          // LISTA DE VENDAS
+          // LISTA DE VENDAS (reage a mudanças em vendas, clientes e produtos)
           Expanded(
-            child: ListView.builder(
-              itemCount: sales.length,
-              itemBuilder: (_, i) {
-                final s = sales[i];
+            child: ValueListenableBuilder(
+              valueListenable: saleBox.listenable(),
+              builder: (_, Box<Sale> sales, __) {
+                if (sales.isEmpty) {
+                  return const Center(child: Text("Nenhuma venda registrada"));
+                }
 
-                final client = clients.firstWhere(
-                  (c) => c.id == s.clientId,
-                  orElse: () =>
-                      Client(id: 0, name: "Cliente ?", companyName: ""),
-                );
+                // Recalcula total sempre que vendas mudarem
+                final totalGeral =
+                    sales.values.fold<double>(0, (sum, s) => sum + (s.total));
 
-                final product = products.firstWhere(
-                  (p) => p.id == s.productId,
-                  orElse: () => Product(id: 0, name: "Produto ?", price: 0),
-                );
+                // Keys reais das vendas, garantindo correspondência
+                final saleKeys = sales.keys.toList();
 
-                return Card(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: ListTile(
-                    title: Text("${client.name} - ${product.name}"),
-                    subtitle: Text(
-                      "Qtd: ${s.quantity}   Total: R\$ ${s.total.toStringAsFixed(2)}",
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _editSale(s, i),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteSale(i),
-                        ),
-                      ],
-                    ),
-                  ),
+                return ValueListenableBuilder(
+                  // Escuta clientes também
+                  valueListenable: clientBox.listenable(),
+                  builder: (_, Box<Client> clientsBox, __) {
+                    final clientsMap = clientsBox.toMap();
+
+                    return ValueListenableBuilder(
+                      // Escuta produtos também
+                      valueListenable: productBox.listenable(),
+                      builder: (_, Box<Product> productsBox, __) {
+                        final productsMap = productsBox.toMap();
+
+                        return Column(
+                          children: [
+                            Expanded(
+                              child: ListView.builder(
+                                itemCount: saleKeys.length,
+                                itemBuilder: (_, index) {
+                                  final saleKey = saleKeys[index];
+                                  final Sale? sale = sales.get(saleKey);
+                                  if (sale == null) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  // Usa as chaves reais gravadas em sale.clientId e sale.productId
+                                  final Client? client =
+                                      clientsMap[sale.clientId];
+                                  final Product? product =
+                                      productsMap[sale.productId];
+
+                                  return Card(
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    child: ListTile(
+                                      title: Text(
+                                        "${client?.name ?? 'Cliente ?'} - ${product?.name ?? 'Produto ?'}",
+                                      ),
+                                      subtitle: Text(
+                                        "Qtd: ${sale.quantity}   Total: R\$ ${sale.total.toStringAsFixed(2)}",
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.edit,
+                                              color: Colors.blue,
+                                            ),
+                                            onPressed: () =>
+                                                _editSale(context, saleKey),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                            ),
+                                            onPressed: () =>
+                                                _deleteSale(context, saleKey),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const Divider(),
+                            // TOTAL GERAL sempre consistente e atualizado
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    "Total Geral:",
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    "R\$ ${totalGeral.toStringAsFixed(2)}",
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 );
               },
-            ),
-          ),
-
-          const Divider(),
-
-          // TOTAL GERAL NO FINAL
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Total Geral:",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  "R\$ ${totalGeral.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -112,35 +161,37 @@ class _SaleListPageState extends State<SaleListPage> {
   // =======================
   // EXCLUIR VENDA
   // =======================
-  Future<void> _deleteSale(int index) async {
-    await HiveSaleDB.delete(index);
+  Future<void> _deleteSale(BuildContext context, dynamic saleKey) async {
+    await HiveSaleDB.delete(saleKey);
     await sync.syncSales();
-    setState(() {});
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Venda excluída")),
+    );
   }
 
   // =======================
   // EDITAR VENDA
   // =======================
+  Future<void> _editSale(BuildContext context, dynamic saleKey) async {
+    final saleBox = HiveSaleDB.box();
+    final clientBox = HiveClientDB.box();
+    final productBox = HiveProductDB.box();
 
-  Future<void> _editSale(Sale sale, int index) async {
-    final clients = HiveClientDB.getAll();
-    final products = HiveProductDB.getAll();
+    final Sale sale = saleBox.get(saleKey)!;
 
-    // Encontrar índices atuais baseado no id
-    int selectedClient = clients.indexWhere((c) => c.id == sale.clientId);
-    int selectedProduct = products.indexWhere((p) => p.id == sale.productId);
+    // Usa mapas key->objeto para consistência
+    final clientEntries = clientBox.toMap();
+    final productEntries = productBox.toMap();
 
-    // fallback se não encontrar
-    if (selectedClient < 0) selectedClient = 0;
-    if (selectedProduct < 0) selectedProduct = 0;
+    dynamic selectedClientKey = sale.clientId;
+    dynamic selectedProductKey = sale.productId;
 
     int quantity = sale.quantity;
-    double price = products[selectedProduct].price;
-    double total = sale.total;
-
-    void calculateTotal() {
-      total = price * quantity;
-    }
+    double price = productEntries[selectedProductKey]?.price ?? 0;
+    double total = quantity * price;
 
     showDialog(
       context: context,
@@ -152,52 +203,43 @@ class _SaleListPageState extends State<SaleListPage> {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // CLIENTE
-                  DropdownButton<int>(
-                    value: selectedClient,
+                  // CLIENTE por chave real
+                  DropdownButton<dynamic>(
+                    value: selectedClientKey,
                     isExpanded: true,
-                    items: clients.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final c = entry.value;
-
+                    items: clientEntries.entries.map((e) {
                       return DropdownMenuItem(
-                        value: i,
-                        child: Text(c.name),
+                        value: e.key,
+                        child: Text(e.value.name),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setDialogState(() {
-                        selectedClient = value!;
+                        selectedClientKey = value;
                       });
                     },
                   ),
-
                   const SizedBox(height: 12),
-
-                  // PRODUTO
-                  DropdownButton<int>(
-                    value: selectedProduct,
+                  // PRODUTO por chave real
+                  DropdownButton<dynamic>(
+                    value: selectedProductKey,
                     isExpanded: true,
-                    items: products.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final p = entry.value;
-
+                    items: productEntries.entries.map((e) {
+                      final p = e.value;
                       return DropdownMenuItem(
-                        value: i,
+                        value: e.key,
                         child: Text("${p.name} (R\$ ${p.price})"),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setDialogState(() {
-                        selectedProduct = value!;
-                        price = products[value].price;
-                        calculateTotal();
+                        selectedProductKey = value;
+                        price = productEntries[value]?.price ?? 0;
+                        total = quantity * price;
                       });
                     },
                   ),
-
                   const SizedBox(height: 12),
-
                   // QUANTIDADE
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -208,7 +250,7 @@ class _SaleListPageState extends State<SaleListPage> {
                           if (quantity > 1) {
                             setDialogState(() {
                               quantity--;
-                              calculateTotal();
+                              total = quantity * price;
                             });
                           }
                         },
@@ -222,20 +264,19 @@ class _SaleListPageState extends State<SaleListPage> {
                         onPressed: () {
                           setDialogState(() {
                             quantity++;
-                            calculateTotal();
+                            total = quantity * price;
                           });
                         },
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
-
-                  // TOTAL
                   Text(
                     "Total: R\$ ${total.toStringAsFixed(2)}",
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               );
@@ -248,20 +289,21 @@ class _SaleListPageState extends State<SaleListPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final client = clients[selectedClient];
-                final product = products[selectedProduct];
-
-                sale.clientId = client.id ?? 0;
-                sale.productId = product.id ?? 0;
+                sale.clientId = selectedClientKey;
+                sale.productId = selectedProductKey;
                 sale.quantity = quantity;
                 sale.total = total;
                 sale.synced = false;
-                await sale.save();
 
-                sync.syncSales();
+                await sale.save();
+                await sync.syncSales();
+
+                if (!mounted) return;
 
                 Navigator.pop(context);
-                setState(() {});
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Venda atualizada")),
+                );
               },
               child: const Text("Salvar"),
             ),

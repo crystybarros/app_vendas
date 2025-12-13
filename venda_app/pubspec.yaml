@@ -1,4 +1,4 @@
-name: clientes_offline
+name: App_vendas
 description: App Flutter Offline-First para cadastro de clientes
 publish_to: "none"
 version: 1.0.0+1
